@@ -8,10 +8,8 @@ set -o pipefail
 
 export PROVIDER_UPDATE_DELAY=${PROVIDER_UPDATE_DELAY:-"30"}
 export PROVIDER=${PROVIDER:-"hetzner"}
-export PROVIDER_ACCOUNT=${PROVIDER_ACCOUNT+ --auth-account ${PROVIDER_ACCOUNT}}
-export PROVIDER_USERNAME=${PROVIDER_USERNAME+ --auth-username ${PROVIDER_USERNAME}}
-export PROVIDER_PASSWORD=${PROVIDER_PASSWORD+ --auth-password ${PROVIDER_PASSWORD}}
-export LOGIN="$PROVIDER_ACCOUNT $PROVIDER_USERNAME $PROVIDER_PASSWORD"
+export PROVIDER_AUTH_TOKEN=${PROVIDER_AUTH_TOKEN+ --auth-token ${PROVIDER_AUTH_TOKEN}}
+export LOGIN="$PROVIDER_AUTH_TOKEN"
 
 
 function deploy_challenge {
@@ -21,27 +19,16 @@ function deploy_challenge {
 
         echo "deploy_challenge called: ${DOMAIN}, ${TOKEN_FILENAME}, ${TOKEN_VALUE}"
 
-        if [ "${PROVIDER}" != "hetzner" ]; then
-            lexicon $PROVIDER create ${DOMAIN} TXT ${LOGIN} --auth--name="_acme-challenge.${DOMAIN}." \
-                --content="${TOKEN_VALUE}"
-        else
-            local PROPAGATED="yes"
-            if ((i < $# - 3)); then
-                local PROPAGATED="no"
-            fi
-            lexicon $PROVIDER create ${DOMAIN} TXT ${LOGIN} --name="_acme-challenge.${DOMAIN}." \
-                --content="${TOKEN_VALUE}" --propagated="${PROPAGATED}"
-        fi
+        lexicon $PROVIDER create ${DOMAIN} TXT ${LOGIN} --name="_acme-challenge.${DOMAIN}." \
+            --content="${TOKEN_VALUE}"
     done
 
-    if [ "${PROVIDER}" != "hetzner" ]; then
-        local DELAY_COUNTDOWN=$PROVIDER_UPDATE_DELAY
-        while [ $DELAY_COUNTDOWN -gt 0 ]; do
-            echo -ne "${DELAY_COUNTDOWN}\033[0K\r"
-            sleep 1
-            : $((DELAY_COUNTDOWN--))
-        done
-    fi
+    local DELAY_COUNTDOWN=$PROVIDER_UPDATE_DELAY
+    while [ $DELAY_COUNTDOWN -gt 0 ]; do
+        echo -ne "${DELAY_COUNTDOWN}\033[0K\r"
+        sleep 1
+        : $((DELAY_COUNTDOWN--))
+    done
 
     # This hook is called once for every domain chain that needs to be
     # validated, including any alternative names you may have listed.
