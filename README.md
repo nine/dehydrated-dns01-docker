@@ -1,30 +1,72 @@
+# dehydrated.io docker image for letsencypt.org ACME dns-01 challenge
+
+## Provider auth-token
+
+Add generated auth-token, e.g. from https://dns.hetzner.com
 ```
-export AUTH_USERNAME="your_user"
-export AUTH_TOKEN="your_pass"
+export AUTH_TOKEN="your_token"
+```
+
+Test the communication with following commands: 
+```
+lexicon hetzner create evk.services TXT --name="_acme-challenge.gitlab" --content="challenge token" --auth-token $AUTH_TOKEN  
+lexicon hetzner list   evk.services TXT --name="_acme-challenge.gitlab" --content="challenge token" --auth-token $AUTH_TOKEN 
+lexicon hetzner delete evk.services TXT --name="_acme-challenge.gitlab" --content="challenge token" --auth-token $AUTH_TOKEN 
+```
+
+## Docker container
+
+### Build the container
+
+Build the container locally:
+```
+docker build -t dehydrated --build-arg CONTACT_EMAIL="it.admin@yourcompany.biz" .
+```
+
+Alternatively push the image to your docker registry:
+```
+docker build -t your-docker-registry.services:4567/path/to/dehydrated-dns01-docker --build-arg CONTACT_EMAIL="it.admin@yourcompany.biz" .
+docker push your-docker-registry.services:4567/path/to/dehydrated-dns01-docker
+```
+
+### Deploy the container
+
+
+Setup
+```
+mkdir /var/lib/dehydrated/
+mkdir /etc/dehydrated/
+echo "your-domain.org" >> /etc/dehydrated/domains.txt
+echo "export AUTH_TOKEN='your_token'" > /etc/dehydrated/auth-token
+```
+
+Get the docker image:
+```
+docker pull your-docker-registry.services:4567/path/to/dehydrated-dns01-docker
 ```
 
 
+Register at letsencrypt.org and accept the terms and conditions:
 ```
-lexicon hetzner create evk.services TXT --name="_acme-challenge.gitlab" --content="challenge token" --auth-account konsoleh --auth-username $AUTH_USERNAME --auth-password $AUTH_TOKEN  
-lexicon hetzner list   evk.services TXT --name="_acme-challenge.gitlab" --content="challenge token" --auth-account konsoleh --auth-username $AUTH_USERNAME --auth-password $AUTH_TOKEN 
-lexicon hetzner delete evk.services TXT --name="_acme-challenge.gitlab" --content="challenge token" --auth-account konsoleh --auth-username $AUTH_USERNAME --auth-password $AUTH_TOKEN 
+docker run \
+    --rm \
+    -v /etc/dehydrated/domains.txt:/etc/dehydrated/domains.txt \
+    -v /var/lib/dehydrated:/var/lib/dehydrated \
+    -t dehydrated \
+    /usr/bin/dehydrated --register --accept-terms
 ```
 
-
+Refresh certificates
 ```
-docker build -t dehydrated --build-arg CONTACT_EMAIL="webmaster@evk.biz" .
-```
-
-
-```
+source /etc/dehydrated/auth-token
 docker run \ 
     -e "PROVIDER=hetzner" \
-    -e "PROVIDER_ACCOUNT=konsoleh" \
-    -e "PROVIDER_PASSWORD=$AUTH_TOKEN" \
-    -e "PROVIDER_USERNAME=$AUTH_USERNAME" \
-    -e "PROVIDER_UPDATE_DELAY=30" \
-    -v ${PWD}/domains.txt:/etc/dehydrated/domains.txt \
-    -v ${PWD}/docker-dehydrated/dehydrated:/var/lib/dehydrated \
-    -t dehydrated /usr/bin/dehydrated --cron --challenge dns-01
+    -e "PROVIDER_AUTH_TOKEN=$AUTH_TOKEN" \
+    -e "PROVIDER_UPDATE_DELAY=240" \
+    --rm \
+    -v /etc/dehydrated/domains.txt:/etc/dehydrated/domains.txt \
+    -v /var/lib/dehydrated:/var/lib/dehydrated \
+    -t dehydrated \
+    /usr/bin/dehydrated --cron --challenge dns-01
 ```
 
